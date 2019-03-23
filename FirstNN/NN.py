@@ -1,23 +1,23 @@
 import math as cm
 import numpy as np
 
-
 np.random.seed(42)
 
 
 def sigmoid(x):
-    return 1/(1 + cm.exp(-x))
+    return 1 / (1 + cm.exp(-x))
 
 
 def dot(K, L):
-   if len(K) != len(L):
-      return 0
-   return sum(i[0] * i[1] for i in zip(K, L))
+    if len(K) != len(L):
+        return 0
+    return sum(i[0] * i[1] for i in zip(K, L))
 
 
 def d_sigmoid(x):
-    dfx = sigmoid(x)*(1-sigmoid(x))
+    dfx = sigmoid(x) * (1 - sigmoid(x))
     return dfx
+
 
 # Each neuron has it's weights and it's bias.
 # It has as many weights as inputs, and 1 bias; Defined in layer().
@@ -25,6 +25,7 @@ class neuron():
     def __init__(self, weight, bias):
         self.w = weight
         self.b = bias
+        self.last_activated = 0
 
     def activation(self, x):
         return sigmoid(x + self.b)
@@ -35,6 +36,7 @@ class neuron():
         weighter = dot(x, self.w)
         self.last_activated = self.activation(weighter)
         return self.last_activated
+
 
 # Create a layer with as many weights as inputs, and as many neurons and biases as n_neurons
 # Each layer it's composed of neurons: [neuron_1, neuron_2, neuron_3..., neuron_n]
@@ -60,65 +62,58 @@ class NeuralNetwork():
 
     def __init__(self, n_inputs, n_outputs, n_layers, n_neurons):
         # We initialize the input vector
-        self.inputs = []
-        for i in range(n_inputs):
-            self.inputs.append(np.random.random())
-        # Initialize output real vector
-        self.outputs_r = []
-        for i in range(n_outputs):
-            self.outputs_r.append(np.random.random())
+        self.inputs = [50, 4, 1]
+        # for i in range(n_inputs):
+            # self.inputs.append(np.random.random())
+        #Initialize output real vector
+        self.outputs_r = [20, 5]
+        # for i in range(n_outputs):
+            # self.outputs_r.append(np.random.random())
         # Initialize output prediction vector
-        self.outputs_p = self.outputs_r
+        self.outputs_p = []
         self.layers = []
-        # We create the first layer values, which will be the input.
-        self.lvalues = []
-        self.lvalues.append(self.inputs)
-        # Create a NN from inputs to last layer, with all weights and biases, still need to cerate weights from last
+        # Create a NN from inputs to last layer, with all weights and biases, still need to crate weights from last
         # layer to output and output biases.
-        # Number of layers include output.
+        # Number of layers does not include output.
         for i in range(n_layers):
             if i == 0:
-                self.layers.append(layer(self.inputs, n_neurons[i]))  # Create inputs and it's weights
+                # Create first layer coming from inputs.
+                self.layers.append(layer(self.inputs, n_neurons[i]))
             else:
                 self.layers.append(layer(self.layers[i - 1].neurons, n_neurons[i]))
-        # Create output with it's biases and weights, from last layer.
+        # Create output with it's biases and weights, coming from last layer.
         self.layers.append(layer(self.layers[n_layers - 1].neurons, len(self.outputs_r)))
-        # We call the feed forward function.
+
+    def predict(self, inputs):
+        self.outputs_p = []
         for i, elementi in enumerate(self.layers):
-            values = []
             for elementj in elementi.neurons:
-                # For each neuron we call it's feedforward info.
-                elementj.feedforward(self.lvalues[i])
-                values.append(elementj.last_activated)
-            self.lvalues.append(values)
-        # The last value of self.lvalues is the output y predicted.
-        self.outputs_p = self.lvalues[len(self.layers)]
+                # For the fist layer we input the system inputs.
+                if i == 0:
+                    elementj.feedforward(inputs)
+                # For the rest of layers we input the previous layer values.
+                else:
+                    # We make a list of each neuron activation values from teh previous layer.
+                    values = []
+                    for elementk in self.layers[i - 1].neurons:
+                        values.append(elementk.last_activated)
+                    # We input the values from the previous layer to the current layer.
+                    elementj.feedforward(values)
+        # Our output will be the activation values of the last layer.
+        for element in self.layers[len(self.layers) - 1].neurons:
+            self.outputs_p.append(element.last_activated)
+        return self.outputs_p
 
     # We can calculate the mean squared error (MSE)
     def mse_loss(self):
         mse = 0
         for i, real_out in enumerate(self.outputs_r):
-            mse = mse+ (real_out - self.outputs_p[i])**2
-        mse = mse/len(self.outputs_p)
+            mse = mse + (real_out - self.outputs_p[i]) ** 2
+        mse = mse / len(self.outputs_p)
         return mse
 
     def train(self, inputs, real_outputs):
         self.predict(inputs)
-
-
-    def predict(self, inputs):
-        self.lvalues = []
-        self.lvalues.append(inputs)
-        for i, elementi in enumerate(self.layers):
-            values = []
-            for elementj in elementi.neurons:
-                # For each neuron we call it's feedforward info.
-                elementj.feedforward(self.lvalues[i])
-                values.append(elementj.last_activated)
-            self.lvalues.append(values)
-        # The last value of self.lvalues is the output y predicted.
-        self.outputs_p = self.lvalues[len(self.layers)]
-        return self.outputs_p
 
     def __str__(self):
         representation = 'Neural network layer formed by ' + str(len(self.layers) - 1) + ' hidden layers.\n'
@@ -137,18 +132,18 @@ class NeuralNetwork():
                 representation = representation + '\t\t input weights: ' + str(values.w) + '\n'
                 representation = representation + '\t\t bias: ' + str(values.b) + '\n'
 
-        representation = representation + '\n'
-        representation = representation + 'The real output is' + str(self.outputs_r) + '.\n'
-        representation = representation + 'The predicted output is' + str(self.outputs_p) + '.\n'
-
         return representation  # what it shows when we call print over an object which is class layer.
 
 
 
-input = [50, 4, 1]
-real_output = [20, 5]
 Number_layers = 2
 # Number of neurons of each hidden layer.
 Number_neurons = [4, 2]
-nn = NeuralNetwork(input, real_output, Number_layers, Number_neurons)
+number_inputs = 3
+number_outputs = 2
+nn = NeuralNetwork(number_inputs, number_outputs, Number_layers, Number_neurons)
+
+input = [50, 4, 1]
+real_output = [20, 5]
 print(nn)
+nn.predict(input)
