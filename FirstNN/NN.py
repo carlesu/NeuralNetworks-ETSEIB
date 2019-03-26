@@ -18,6 +18,10 @@ def d_sigmoid(x):
     dfx = sigmoid(x) * (1 - sigmoid(x))
     return dfx
 
+def d_f_sigmoid(sigmoid):
+    d = sigmoid*(1-sigmoid)
+    return d
+
 
 # Each neuron has it's weights and it's bias.
 # It has as many weights as inputs, and 1 bias; Defined in layer().
@@ -62,11 +66,11 @@ class NeuralNetwork():
 
     def __init__(self, n_inputs, n_outputs, n_layers, n_neurons):
         # We initialize the input vector
-        self.inputs = [50, 4, 1]
+        self.inputs = [0.1, 0.2, 0.7]
         # for i in range(n_inputs):
             # self.inputs.append(np.random.random())
         #Initialize output real vector
-        self.outputs_r = [20, 5]
+        self.outputs_r = [1., 0.0, 0.0]
         # for i in range(n_outputs):
             # self.outputs_r.append(np.random.random())
         # Initialize output prediction vector
@@ -93,7 +97,7 @@ class NeuralNetwork():
                     elementj.feedforward(inputs)
                 # For the rest of layers we input the previous layer values.
                 else:
-                    # We make a list of each neuron activation values from teh previous layer.
+                    # We make a list of each neuron activation values from the previous layer.
                     values = []
                     for elementk in self.layers[i - 1].neurons:
                         values.append(elementk.last_activated)
@@ -105,15 +109,79 @@ class NeuralNetwork():
         return self.outputs_p
 
     # We can calculate the mean squared error (MSE)
-    def mse_loss(self):
-        mse = 0
-        for i, real_out in enumerate(self.outputs_r):
-            mse = mse + (real_out - self.outputs_p[i]) ** 2
-        mse = mse / len(self.outputs_p)
+    # The input is a list of all the data set, if we have 2 outputs, and 3 samples
+    # real_outputs
+    def mse_loss(self, target, output):
+        mse = 0.5*(target-output)**2
         return mse
 
-    def train(self, inputs, real_outputs):
-        self.predict(inputs)
+    # Derivate of our error, in order to minimize it.
+    def d_mse_loss(self, target, output):
+        d_mse = -(target-output)
+        return d_mse
+
+    def backpropagation(self, learning_rate):
+        # Derivates Pre Calculations
+        d_out_d_in = []
+        d_in_d_weight = []
+        for i, layer in enumerate(self.layers[::-1]):
+            # We do it until we reach last layer.
+            d_out_d_in_layer = []
+            d_in_d_weight_layer = []
+            for j, neuron in enumerate(layer.neurons):
+                d_out_d_in_layer.append(d_f_sigmoid(neuron.last_activated))
+                d_in_d_weight_layer_neuron = []
+                if i < len(self.layers) - 1:
+                    for k, neuron_ant in enumerate(self.layers[::-1][i + 1].neurons):
+                        d_in_d_weight_layer_neuron.append(neuron_ant.last_activated)
+                else:
+                    for element in self.inputs:
+                        d_in_d_weight_layer_neuron.append(element)
+                d_in_d_weight_layer.append(d_in_d_weight_layer_neuron)
+            d_out_d_in.append(d_out_d_in_layer)
+            d_in_d_weight.append(d_in_d_weight_layer)
+
+        # Errors
+        d_Ei_outi = []
+        for i, layer in enumerate(self.layers[::-1]):
+            d_Ei_outi_layer = []
+            for j, neuron in enumerate(layer.neurons):
+                if i == 0:
+                    d_Ei_outi_layer.append(self.d_mse_loss(self.outputs_r[j], self.outputs_p[j]))
+                else:
+                    sum = 0
+                    for k, neuron_ant in enumerate(self.layers[::-1][i-1].neurons):
+                        sum = sum + d_Ei_outi[i - 1][k] * d_out_d_in[i - 1][k] * neuron_ant.w[j]
+                    d_Ei_outi_layer.append(sum)
+            d_Ei_outi.append(d_Ei_outi_layer)
+
+        # Deltas
+        deltas = []
+        for i, layer in enumerate(d_Ei_outi):
+            deltas_layer = []
+            for j, derror in enumerate(layer):
+                deltas_layer_neuron = []
+                for dweight in d_in_d_weight[i][j]:
+                    deltas_layer_neuron.append(derror * d_out_d_in[i][j] * dweight)
+                deltas_layer.append(deltas_layer_neuron)
+            deltas.append(deltas_layer)
+
+
+        # New weights:
+        for i, dlayer in enumerate(deltas):
+            for j, dneuron in enumerate(dlayer):
+                for h, dneuroninp in enumerate(dneuron):
+                    self.layers[::-1][i].neurons[j].w[h] = self.layers[::-1][i].neurons[j].w[h] - learning_rate*dneuroninp
+
+
+
+    def train(self, inputs, real_outputs, learning_rate, epochs):
+        for i in range(epochs):
+            a = self.predict(inputs)
+            print(a)
+            self.outputs_r = real_outputs
+            self.backpropagation(learning_rate)
+
 
     def __str__(self):
         representation = 'Neural network layer formed by ' + str(len(self.layers) - 1) + ' hidden layers.\n'
@@ -138,12 +206,18 @@ class NeuralNetwork():
 
 Number_layers = 2
 # Number of neurons of each hidden layer.
-Number_neurons = [4, 2]
+Number_neurons = [3, 3]
 number_inputs = 3
-number_outputs = 2
+number_outputs = 3
 nn = NeuralNetwork(number_inputs, number_outputs, Number_layers, Number_neurons)
 
-input = [50, 4, 1]
-real_output = [20, 5]
-print(nn)
-nn.predict(input)
+inputs = [0.1, 0.2, 0.7]
+outputs = [1., 0.0, 0.0]
+
+nn.inputs = inputs
+nn.outputs_r = outputs
+
+nn.predict(inputs)
+nn.backpropagation(0.2)
+
+nn.train(inputs, outputs, 0.1, 1000)
